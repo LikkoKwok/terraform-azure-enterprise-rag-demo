@@ -1,0 +1,5 @@
+environment       = "dev"
+location          = "eastasia"
+app_service_sku   = "B1"
+openai_model_name = "gpt-35-turbo"
+search_sku        = "basic"
