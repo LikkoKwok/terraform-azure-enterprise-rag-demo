@@ -4,7 +4,7 @@ variable "environment" {
 
 variable "location" {
 	type    = string
-	default = "eastus"
+	default = "East Asia"
 }
 
 variable "app_service_sku" {

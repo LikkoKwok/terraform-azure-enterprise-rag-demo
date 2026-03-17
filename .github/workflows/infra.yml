@@ -1,0 +1,132 @@
+name: Infra CI/CD
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "**/*.tf"
+      - "environment/*.tfvars"
+      - "environment/*.tfbackend"
+      - ".github/workflows/infra.yml"
+  push:
+    branches: [main]
+    paths:
+      - "**/*.tf"
+      - "environment/*.tfvars"
+      - "environment/*.tfbackend"
+      - ".github/workflows/infra.yml"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+      action:
+        description: "Terraform action"
+        required: true
+        type: choice
+        options:
+          - plan
+          - apply
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Format Check
+        run: terraform fmt -check -recursive
+
+      - name: Validate
+        run: |
+          terraform init -backend=false
+          terraform validate
+
+  plan:
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'dev' }}
+    concurrency:
+      group: infra-plan-${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'dev' }}
+      cancel-in-progress: false
+    env:
+      TARGET_ENV: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'dev' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform Init
+        run: terraform init -backend-config environment/${TARGET_ENV}.tfbackend
+
+      - name: Terraform Plan
+        run: |
+          terraform plan \
+            -lock-timeout=5m \
+            -var-file environment/${TARGET_ENV}.tfvars \
+            -out ${TARGET_ENV}.tfplan
+
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ env.TARGET_ENV }}
+          path: ${{ env.TARGET_ENV }}.tfplan
+
+  apply:
+    runs-on: ubuntu-latest
+    needs: plan
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.action == 'apply')
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'dev' }}
+    concurrency:
+      group: infra-apply-${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'dev' }}
+      cancel-in-progress: false
+    env:
+      TARGET_ENV: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'dev' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform Init
+        run: terraform init -backend-config environment/${TARGET_ENV}.tfbackend
+
+      - name: Download Plan Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan-${{ env.TARGET_ENV }}
+
+      - name: Terraform Apply
+        run: terraform apply -lock-timeout=5m -auto-approve ${TARGET_ENV}.tfplan

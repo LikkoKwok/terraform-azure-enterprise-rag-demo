@@ -1,5 +1,5 @@
 environment       = "prod"
-location          = "eastasia"
+location          = "East Asia"
 app_service_sku   = "P0v3"
 openai_model_name = "gpt-4o"
 search_sku        = "standard"
