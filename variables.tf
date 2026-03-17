@@ -1,20 +1,20 @@
 variable "environment" {
-  type = string
+	type = string
 }
 
 variable "location" {
-  type    = string
-  default = "eastasia"
+	type    = string
+	default = "eastus"
 }
 
 variable "app_service_sku" {
-  type = string
+	type = string
 }
 
 variable "openai_model_name" {
-  type = string
+	type = string
 }
 
 variable "search_sku" {
-  type = string
+	type = string
 }

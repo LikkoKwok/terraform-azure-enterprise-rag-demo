@@ -1,10 +1,10 @@
-## Terraform Azure Enterprise Grade RAG Architecture
+### Terraforming Enterprise Grade RAG System on Azure
 
-## Project Scenario
+## 🗺 Project Scenario
 This project is designed to build an automated enterprise **RAG (Retrieval-Augmented Generation)** knowledge base on Azure.
 Employees can upload hundreds of PDF technical manuals and use AI for semantic search and question answering.
 
-## Architecture Highlights
+## ⚙️Architecture Highlights
 - **Multi-environment management:** Uses `.tfvars` and `.tfbackend` files to isolate Dev and Prod environments.
 - **Cost optimization:** Dev can run on lower-cost tiers and smaller models, while Prod can use higher tiers and stronger models.
 - **Production-ready engineering:** Structured with reusable modules and environment-specific configuration.
@@ -19,7 +19,7 @@ Employees can upload hundreds of PDF technical manuals and use AI for semantic s
     - **Transport hardening on app ingress:** The Web App enforces `https_only = true` with `minimum_tls_version = "1.2"`.
     - **Environment isolation for blast-radius control:** Separate backend and variable files support isolated Dev/Prod deployments and states.
 
-## Recommended Next Security Hardening
+## 🗝Recommended Next Security Hardening
 - Add private endpoint and private DNS integration for Azure AI Search to align with the OpenAI private-access model.
 - Apply App Service access restrictions and disable public ingress when fronted by private networking.
 - Add NSGs/UDRs and centralized diagnostics (Log Analytics + Defender for Cloud) for stronger network governance and auditing.
@@ -27,26 +27,27 @@ Employees can upload hundreds of PDF technical manuals and use AI for semantic s
 
 ---
 
-## Prerequisites
+## ☁️Prerequisites
 1. **Azure CLI:** Logged in and authorized for your target subscription.
 2. **Terraform:** Version 1.5.0 or later.
 3. **State Storage:** An existing Azure Storage Account for remote `.tfstate` backend.
 
 ---
 
-## Quick Start
+## 🕹Quick Start
 
-## 1. Initialize Terraform (Dev mode)
+## 1. Initialize Terraform
 ```bash
-terraform init -backend-config=environment/dev.tfbackend
+terraform init
 ```
 
-## 2. Preview changes
+## 2. Preview changes (Dev mode)
 ```bash
-terraform plan -var-file=environment/dev.tfvars
+terraform plan --var-file environment/dev.tfvars --backend-config environment/dev.tfbackend --out plan.tfplan
 ```
 
 ## 3. Apply infrastructure
 ```bash
-terraform apply -var-file=environment/dev.tfvars
+terraform apply plan.tfplan
 ```
+
