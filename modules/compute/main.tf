@@ -12,6 +12,7 @@ resource "azurerm_service_plan" "app" {
   sku_name            = var.sku_name
 }
 
+# backend on App Service with private endpoint, hosting the API and the frontend (Streamlit)
 resource "azurerm_linux_web_app" "api" {
   name                      = "app-rag-${var.environment}-${local.name_suffix}"
   resource_group_name       = var.resource_group_name
@@ -26,8 +27,9 @@ resource "azurerm_linux_web_app" "api" {
 
   site_config {
     minimum_tls_version    = "1.2"
-    always_on              = var.environment == "prod" #  Only enable always on If environment is prod
-    vnet_route_all_enabled = true                      # Ensure all traffic goes through VNet, not just private traffic
+    always_on              = true
+    vnet_route_all_enabled = true
+    app_command_line       = "gunicorn -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000 app.main:app" # Without it, FastAPI never starts
 
     application_stack {
       python_version = "3.11"
@@ -35,12 +37,26 @@ resource "azurerm_linux_web_app" "api" {
   }
 
   app_settings = {
-    "ENVIRONMENT"              = var.environment
-    "OPENAI_ENDPOINT"          = var.openai_endpoint
-    "WEBSITE_RUN_FROM_PACKAGE" = "1"
+    "ENVIRONMENT"                         = var.environment
+    "AZURE_OPENAI_ENDPOINT"               = var.openai_endpoint
+    "AZURE_OPENAI_API_KEY"                = var.openai_key
+    "AZURE_SEARCH_ENDPOINT"               = var.search_endpoint
+    "AZURE_SEARCH_KEY"                    = var.search_key
+    "CHAT_DEPLOYMENT"                     = var.chat_deployment
+    "EMBEDDING_DEPLOYMENT"                = var.embedding_deployment
+    "OPENAI_API_VERSION"                  = "2024-02-15-preview"
+    "EVALUATOR_OPENAI_API_VERSION"        = "2024-02-15-preview"
+    "AZURE_SEARCH_INDEX"                  = "manuals-index"
+    "WEBSITES_PORT"                       = "8000"
+    "WEBSITES_CONTAINER_START_TIME_LIMIT" = "1800"
+    "WEBSITE_WARMUP_PATH"                 = "/healthz"
+    "SCM_DO_BUILD_DURING_DEPLOYMENT"      = "true"
+    "ENABLE_ORYX_BUILD"                   = "true"
+    "WEBSITE_RUN_FROM_PACKAGE"            = "0"
   }
 }
 
+# frontend on App Service with private endpoint, hosting the Streamlit UI
 resource "azurerm_linux_web_app" "frontend" {
   name                      = "app-rag-ui-${var.environment}-${local.name_suffix}"
   resource_group_name       = var.resource_group_name
@@ -55,7 +71,7 @@ resource "azurerm_linux_web_app" "frontend" {
 
   site_config {
     minimum_tls_version    = "1.2"
-    always_on              = var.environment == "prod"
+    always_on              = true
     vnet_route_all_enabled = true
     app_command_line       = "streamlit run frontend/ui.py --server.address 0.0.0.0 --server.port 8000"
 
@@ -65,9 +81,13 @@ resource "azurerm_linux_web_app" "frontend" {
   }
 
   app_settings = {
-    "ENVIRONMENT"              = var.environment
-    "API_BASE_URL"             = "https://${azurerm_linux_web_app.api.default_hostname}"
-    "WEBSITES_PORT"            = "8000"
-    "WEBSITE_RUN_FROM_PACKAGE" = "1"
+    "ENVIRONMENT"                         = var.environment
+    "API_BASE_URL"                        = "https://${azurerm_linux_web_app.api.default_hostname}"
+    "WEBSITES_PORT"                       = "8000"
+    "WEBSITES_CONTAINER_START_TIME_LIMIT" = "1800"
+    "WEBSITE_WARMUP_PATH"                 = "/"
+    "SCM_DO_BUILD_DURING_DEPLOYMENT"      = "true"
+    "ENABLE_ORYX_BUILD"                   = "true"
+    "WEBSITE_RUN_FROM_PACKAGE"            = "0"
   }
 }

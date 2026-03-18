@@ -18,6 +18,14 @@ variable "openai_model_version" {
   type = string
 }
 
+variable "embedding_model" {
+  type = string
+}
+
+variable "embedding_model_version" {
+  type = string
+}
+
 variable "search_sku" {
   type = string
 }

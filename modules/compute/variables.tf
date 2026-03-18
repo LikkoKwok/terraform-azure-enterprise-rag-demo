@@ -2,6 +2,27 @@ variable "resource_group_name" {
   type = string
 }
 
+variable "openai_key" {
+  type      = string
+  sensitive = true
+}
+
+variable "chat_deployment" {
+  type = string
+}
+
+variable "embedding_deployment" {
+  type = string
+}
+
+variable "search_endpoint" {
+  type = string
+}
+
+variable "search_key" {
+  type      = string
+  sensitive = true
+}
 variable "location" {
   type = string
 }

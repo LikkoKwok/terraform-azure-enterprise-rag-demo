@@ -10,7 +10,9 @@ terraform {
 data "azurerm_client_config" "current" {}
 
 locals {
-  name_suffix = substr(replace(data.azurerm_client_config.current.subscription_id, "-", ""), 0, 6)
+  name_suffix               = substr(replace(data.azurerm_client_config.current.subscription_id, "-", ""), 0, 6)
+  chat_deployment_name      = "chat-model"
+  embedding_deployment_name = "embedding-model"
 }
 
 resource "azurerm_cognitive_account" "openai" {
@@ -44,7 +46,7 @@ resource "azurerm_private_endpoint" "openai_pe" {
 }
 
 resource "azurerm_cognitive_deployment" "model" {
-  name                 = "chat-model"
+  name                 = local.chat_deployment_name
   cognitive_account_id = azurerm_cognitive_account.openai.id
   rai_policy_name      = "Microsoft.DefaultV2"
   sku {
@@ -54,6 +56,20 @@ resource "azurerm_cognitive_deployment" "model" {
     format  = "OpenAI"
     name    = var.openai_model
     version = var.openai_model_version
+  }
+}
+
+resource "azurerm_cognitive_deployment" "embedding" {
+  name                 = local.embedding_deployment_name
+  cognitive_account_id = azurerm_cognitive_account.openai.id
+  rai_policy_name      = "Microsoft.DefaultV2"
+  sku {
+    name = "Standard"
+  }
+  model {
+    format  = "OpenAI"
+    name    = var.embedding_model
+    version = var.embedding_model_version
   }
 }
 

@@ -11,6 +11,7 @@ resource "azurerm_subnet" "app_snet" {
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes     = ["10.0.1.0/24"]
+  service_endpoints    = ["Microsoft.Storage"]
 
   delegation {
     name = "app-delegation"
@@ -27,6 +28,7 @@ resource "azurerm_subnet" "pe_snet" {
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes     = ["10.0.2.0/24"]
+  service_endpoints    = ["Microsoft.Storage"]
 }
 
 # Private DNS Zone for Azure OpenAI — required so the private endpoint FQDN resolves to the private IP
