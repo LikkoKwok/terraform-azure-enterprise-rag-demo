@@ -14,6 +14,10 @@ variable "openai_model" {
   type = string
 }
 
+variable "openai_model_version" {
+  type = string
+}
+
 variable "search_sku" {
   type = string
 }

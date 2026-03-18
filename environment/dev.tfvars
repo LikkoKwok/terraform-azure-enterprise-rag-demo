@@ -1,5 +1,6 @@
 environment       = "dev"
-location          = "East Asia"
+location          = "East US"
 app_service_sku   = "B1"
-openai_model_name = "gpt-35-turbo"
+openai_model_name = "gpt-4o"
+openai_model_version = "2024-08-06"
 search_sku        = "basic"

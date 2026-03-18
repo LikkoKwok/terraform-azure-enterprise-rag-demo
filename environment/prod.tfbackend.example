@@ -1,0 +1,4 @@
+resource_group_name  = "rg-terraform-state"
+storage_account_name = "<state-storage-account-name>"
+container_name       = "tfstate"
+key                  = "rag-system.prod.tfstate"

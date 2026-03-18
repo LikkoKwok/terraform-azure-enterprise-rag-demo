@@ -38,7 +38,10 @@ This repository is structured for multi-environment Terraform delivery on Azure.
 
 ## Terraform State and Safety Controls
 
-- Keep separate remote backends for Dev and Prod using the existing `.tfbackend` files.
+- Keep separate remote backends for Dev and Prod.
+- Commit only `environment/*.tfbackend.example` templates, never real backend files.
+- For local runs, create `environment/dev.tfbackend` or `environment/prod.tfbackend` from the examples.
+- For CI runs, generate backend config from GitHub Environment secrets.
 - Enable blob versioning and state locking on the backend storage account.
 - Use saved plan files with `-out` and apply only those plans in automation.
 - Add `-lock-timeout=5m` in CI to reduce failures from transient state locks.
@@ -53,7 +56,7 @@ This repository is structured for multi-environment Terraform delivery on Azure.
 - `terraform validate`
 
 3. Plan
-- `terraform init -backend-config environment/dev.tfbackend`
+- `terraform init -backend-config environment/dev.tfbackend` (local) or generated `backend.hcl` (CI)
 - `terraform plan -var-file environment/dev.tfvars -out dev.tfplan`
 
 4. Policy and security
@@ -179,3 +182,14 @@ jobs:
 - Run scheduled drift detection using `terraform plan` without apply.
 - Keep module versioning explicit as the repository grows.
 - Add post-deployment checks for app startup, private endpoint DNS resolution, and service health.
+
+## Required GitHub Environment Secrets
+
+Set these secrets in both `dev` and `prod` GitHub Environments:
+
+- `AZURE_CLIENT_ID`
+- `AZURE_TENANT_ID`
+- `AZURE_SUBSCRIPTION_ID`
+- `TFSTATE_RESOURCE_GROUP`
+- `TFSTATE_STORAGE_ACCOUNT`
+- `TFSTATE_CONTAINER`

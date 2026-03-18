@@ -36,14 +36,20 @@ Employees can upload hundreds of PDF technical manuals and use AI for semantic s
 
 ## 🕹 Quick Start
 
+Before running Terraform locally, create a non-committed backend file from the example:
+
+```bash
+cp environment/dev.tfbackend.example environment/dev.tfbackend
+```
+
 ## 1. Initialize Terraform
 ```bash
-terraform init
+terraform init --backend-config environment/dev.tfbackend
 ```
 
 ## 2. Preview changes (Dev mode)
 ```bash
-terraform plan --var-file environment/dev.tfvars --backend-config environment/dev.tfbackend --out plan.tfplan
+terraform plan --var-file environment/dev.tfvars --out plan.tfplan
 ```
 
 ## 3. Apply infrastructure

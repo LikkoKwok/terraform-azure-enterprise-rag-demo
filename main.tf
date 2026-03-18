@@ -11,14 +11,15 @@ module "network" {
 }
 
 module "ai_core" {
-  source              = "./modules/ai_service"
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
-  environment         = var.environment
-  openai_model        = var.openai_model_name
-  search_sku          = var.search_sku
-  pe_subnet_id        = module.network.pe_subnet_id
-  openai_dns_zone_id  = module.network.openai_dns_zone_id
+  source               = "./modules/ai_service"
+  resource_group_name  = azurerm_resource_group.rg.name
+  location             = azurerm_resource_group.rg.location
+  environment          = var.environment
+  openai_model         = var.openai_model_name
+  openai_model_version = var.openai_model_version
+  search_sku           = var.search_sku
+  pe_subnet_id         = module.network.pe_subnet_id
+  openai_dns_zone_id   = module.network.openai_dns_zone_id
 }
 
 module "compute" {

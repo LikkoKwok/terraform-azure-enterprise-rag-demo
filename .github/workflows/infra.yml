@@ -6,14 +6,14 @@ on:
     paths:
       - "**/*.tf"
       - "environment/*.tfvars"
-      - "environment/*.tfbackend"
+      - "environment/*.tfbackend.example"
       - ".github/workflows/infra.yml"
   push:
     branches: [main]
     paths:
       - "**/*.tf"
       - "environment/*.tfvars"
-      - "environment/*.tfbackend"
+      - "environment/*.tfbackend.example"
       - ".github/workflows/infra.yml"
   workflow_dispatch:
     inputs:
@@ -78,8 +78,17 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Build Backend Config
+        run: |
+          cat > backend.hcl <<EOF
+          resource_group_name  = "${{ secrets.TFSTATE_RESOURCE_GROUP }}"
+          storage_account_name = "${{ secrets.TFSTATE_STORAGE_ACCOUNT }}"
+          container_name       = "${{ secrets.TFSTATE_CONTAINER }}"
+          key                  = "rag-system.${TARGET_ENV}.tfstate"
+          EOF
+
       - name: Terraform Init
-        run: terraform init -backend-config environment/${TARGET_ENV}.tfbackend
+        run: terraform init -backend-config=backend.hcl
 
       - name: Terraform Plan
         run: |
@@ -120,8 +129,17 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Build Backend Config
+        run: |
+          cat > backend.hcl <<EOF
+          resource_group_name  = "${{ secrets.TFSTATE_RESOURCE_GROUP }}"
+          storage_account_name = "${{ secrets.TFSTATE_STORAGE_ACCOUNT }}"
+          container_name       = "${{ secrets.TFSTATE_CONTAINER }}"
+          key                  = "rag-system.${TARGET_ENV}.tfstate"
+          EOF
+
       - name: Terraform Init
-        run: terraform init -backend-config environment/${TARGET_ENV}.tfbackend
+        run: terraform init -backend-config=backend.hcl
 
       - name: Download Plan Artifact
         uses: actions/download-artifact@v4
