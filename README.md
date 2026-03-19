@@ -42,12 +42,12 @@ Before running Terraform locally, create a non-committed backend file from the e
 cp environment/dev.tfbackend.example environment/dev.tfbackend
 ```
 
-## 1. Initialize Terraform
+## 1. Initialize Terraform (Dev mode)
 ```bash
 terraform init --backend-config environment/dev.tfbackend
 ```
 
-## 2. Preview changes (Dev mode)
+## 2. Preview changes
 ```bash
 terraform plan --var-file environment/dev.tfvars --out plan.tfplan
 ```
