@@ -29,7 +29,7 @@ resource "azurerm_linux_web_app" "api" {
     minimum_tls_version    = "1.2"
     always_on              = true
     vnet_route_all_enabled = true
-    app_command_line       = "gunicorn -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000 app.main:app" # Without it, FastAPI never starts
+    app_command_line       = "gunicorn -w 2 -k uvicorn.workers.UvicornWorker --timeout 180 --graceful-timeout 30 -b 0.0.0.0:8000 app.main:app" # Reduce memory pressure and allow longer AI requests
 
     application_stack {
       python_version = "3.11"

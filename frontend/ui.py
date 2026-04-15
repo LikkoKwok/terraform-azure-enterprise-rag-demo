@@ -13,6 +13,33 @@ uploaded_files = st.sidebar.file_uploader("Upload PDF Manuals (Max 100)", accept
 if uploaded_files:
     st.sidebar.success(f"Ready: {len(uploaded_files)} files")
 
+if uploaded_files and st.sidebar.button("Ingest PDFs to Azure AI Search"):
+    files_payload = [
+        ("files", (uploaded_file.name, uploaded_file.getvalue(), "application/pdf"))
+        for uploaded_file in uploaded_files
+    ]
+
+    try:
+        ingest_res = requests.post(
+            f"{API_BASE_URL}/ingest",
+            files=files_payload,
+            timeout=180,
+        )
+        if ingest_res.status_code == 200:
+            result = ingest_res.json()
+            st.sidebar.success(
+                (
+                    f"Indexed {result['chunks_indexed']} chunks from "
+                    f"{result['files_processed']} files into {result['index']}."
+                )
+            )
+        else:
+            st.sidebar.error(
+                f"Ingestion failed ({ingest_res.status_code}): {ingest_res.text}"
+            )
+    except requests.RequestException as exc:
+        st.sidebar.error(f"Cannot reach backend ingestion API: {exc}")
+
 # Chat Interface
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -32,7 +59,7 @@ if prompt := st.chat_input("Enter your question about the manuals..."):
             res = requests.get(
                 f"{API_BASE_URL}/query",
                 params={"question": prompt},
-                timeout=30,
+                timeout=120,
             )
             if res.status_code == 200:
                 data = res.json()

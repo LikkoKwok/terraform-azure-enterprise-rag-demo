@@ -1,14 +1,17 @@
 import os
 import json
 import logging
+from io import BytesIO
 from typing import Optional
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 from langchain_community.vectorstores import AzureSearch
 from langchain.chains import RetrievalQA
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from pypdf import PdfReader
 
 # 1. initialize Rate Limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -27,23 +30,30 @@ evaluator_llm = AzureChatOpenAI(
     temperature=0,
 )
 
-def build_rag_chain() -> RetrievalQA:
+
+def get_embeddings_client() -> AzureOpenAIEmbeddings:
+    return AzureOpenAIEmbeddings(
+        azure_deployment=os.getenv("EMBEDDING_DEPLOYMENT", "text-embedding-3-large"),
+        openai_api_version=os.getenv("OPENAI_API_VERSION", "2024-05-13"),
+    )
+
+
+def get_vector_store(embeddings: AzureOpenAIEmbeddings) -> AzureSearch:
     search_endpoint = os.getenv("AZURE_SEARCH_ENDPOINT")
     search_key = os.getenv("AZURE_SEARCH_KEY")
     if not search_endpoint or not search_key:
         raise RuntimeError("AZURE_SEARCH_ENDPOINT and AZURE_SEARCH_KEY must be configured")
 
-    embeddings = AzureOpenAIEmbeddings(
-        azure_deployment=os.getenv("EMBEDDING_DEPLOYMENT", "text-embedding-3-large"),
-        openai_api_version=os.getenv("OPENAI_API_VERSION", "2024-05-13"),
-    )
-
-    vector_store = AzureSearch(
+    return AzureSearch(
         azure_search_endpoint=search_endpoint,
         azure_search_key=search_key,
         index_name=os.getenv("AZURE_SEARCH_INDEX", "manuals-index"),
         embedding_function=embeddings.embed_query,
     )
+
+def build_rag_chain() -> RetrievalQA:
+    embeddings = get_embeddings_client()
+    vector_store = get_vector_store(embeddings)
 
     llm = AzureChatOpenAI(
         azure_deployment=os.getenv("CHAT_DEPLOYMENT", "gpt-4o"),
@@ -68,6 +78,84 @@ def get_rag_chain() -> RetrievalQA:
 @app.get("/healthz")
 async def healthz():
     return {"status": "ok"}
+
+
+@app.post("/ingest")
+@limiter.limit("5/minute")
+async def ingest_pdfs(request: Request, files: list[UploadFile] = File(...)):
+    if not files:
+        raise HTTPException(status_code=400, detail="At least one PDF file is required")
+
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=int(os.getenv("CHUNK_SIZE", "1200")),
+        chunk_overlap=int(os.getenv("CHUNK_OVERLAP", "200")),
+    )
+
+    all_chunks: list[str] = []
+    all_metadatas: list[dict] = []
+    processed_files = 0
+
+    try:
+        for upload in files:
+            filename = upload.filename or "unnamed.pdf"
+            if not filename.lower().endswith(".pdf"):
+                continue
+
+            raw_pdf = await upload.read()
+            if not raw_pdf:
+                continue
+
+            reader = PdfReader(BytesIO(raw_pdf))
+            page_count = len(reader.pages)
+            if page_count == 0:
+                continue
+
+            processed_files += 1
+            for page_num, page in enumerate(reader.pages, start=1):
+                page_text = (page.extract_text() or "").strip()
+                if not page_text:
+                    continue
+
+                chunks = splitter.split_text(page_text)
+                if not chunks:
+                    continue
+
+                for chunk_idx, chunk in enumerate(chunks, start=1):
+                    all_chunks.append(chunk)
+                    all_metadatas.append(
+                        {
+                            "source": filename,
+                            "page": page_num,
+                            "chunk": chunk_idx,
+                        }
+                    )
+    except Exception as e:
+        logger.exception("Failed during PDF extraction")
+        raise HTTPException(status_code=400, detail=f"PDF extraction failed: {e}")
+
+    if not all_chunks:
+        raise HTTPException(
+            status_code=400,
+            detail="No extractable text found. Ensure uploaded PDFs contain readable text.",
+        )
+
+    try:
+        embeddings = get_embeddings_client()
+        vector_store = get_vector_store(embeddings)
+        doc_ids = vector_store.add_texts(texts=all_chunks, metadatas=all_metadatas)
+        return {
+            "status": "ok",
+            "files_processed": processed_files,
+            "chunks_indexed": len(all_chunks),
+            "documents_upserted": len(doc_ids),
+            "index": os.getenv("AZURE_SEARCH_INDEX", "manuals-index"),
+        }
+    except RuntimeError as e:
+        logger.exception("Ingestion configuration error")
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        logger.exception("Failed to index documents")
+        raise HTTPException(status_code=500, detail=f"Indexing failed: {e}")
 
 @app.get("/query")
 @limiter.limit("20/minute") # Max 20 requests per minute per IP
